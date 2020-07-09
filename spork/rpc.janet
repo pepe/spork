@@ -31,11 +31,14 @@
 
 (defn server
   "Create an RPC server. The default host is \"127.0.0.1\" and the
-  default port is \"9366\". Also must take a dictionary of functions
-  that clients can call."
-  [functions &opt host port]
+  default port is \"9366\". pack-fns is a dictionary with two keys :unpack and
+  :pack. These functions are used for packing and unpacking messages. Default
+  are unmarshal and marshal respectively.
+  Also must take a dictionary of functions that clients can call."
+  [functions &opt host port pack-fns]
   (default host default-host)
   (default port default-port)
+  (default pack-fns {:unpack unmarshal :pack marshal})
   (def keys-msg (keys functions))
   (net/server
     host port
@@ -44,8 +47,8 @@
       (var name "<unknown>")
       (def marshbuf @"")
       (defer (:close stream)
-        (def recv (make-recv stream unmarshal))
-        (def send (make-send stream marshal))
+        (def recv (make-recv stream (pack-fns :unpack)))
+        (def send (make-send stream (pack-fns :pack)))
         (set name (or (recv) (break)))
         (send keys-msg)
         (while (def msg (recv))
@@ -61,16 +64,20 @@
 
 (defn client
   "Create an RPC client. The default host is \"127.0.0.1\" and the
-  default port is \"9366\". Returns a table of async functions
-  that can be used to make remote calls. This table also contains
-  a close function that can be used to close the connection."
-  [&opt host port name]
+  default port is \"9366\". pack-fns should a dictionary with two keys :unpack
+  and :pack with fn values. These functions are used for packing and unpacking
+  messages. Default are unmarshal and marshal respectively.
+  Returns a table of async functions that can be used to make remote calls.
+  This table also contains a close function that can be used to close the
+  connection."
+  [&opt host port name pack-fns]
   (default host default-host)
   (default port default-port)
   (default name (string "[" host ":" port "]"))
+  (default pack-fns {:unpack unmarshal :pack marshal})
   (def stream (net/connect host port))
-  (def recv (make-recv stream unmarshal))
-  (def send (make-send stream marshal))
+  (def recv (make-recv stream (pack-fns :unpack)))
+  (def send (make-send stream (pack-fns :pack)))
   (send name)
   (def fnames (recv))
   (defn closer [&] (:close stream))
