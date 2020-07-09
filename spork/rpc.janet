@@ -55,8 +55,7 @@
           (try
             (let [[fnname args] msg
                   f (functions fnname)]
-              (if-not f
-                (error (string "no function " fnname " supported")))
+              (unless f (error (string "no function " fnname " supported")))
               (def result (f functions ;args))
               (send [true result]))
             ([err]
@@ -64,8 +63,8 @@
 
 (defn client
   "Create an RPC client. The default host is \"127.0.0.1\" and the
-  default port is \"9366\". pack-fns should a dictionary with two keys :unpack
-  and :pack with fn values. These functions are used for packing and unpacking
+  default port is \"9366\". pack-fns is a dictionary with two keys :unpack and
+  :pack with fn values. These functions are used for packing and unpacking
   messages. Default are unmarshal and marshal respectively.
   Returns a table of async functions that can be used to make remote calls.
   This table also contains a close function that can be used to close the
@@ -86,6 +85,7 @@
     (put ret (keyword f)
          (fn rpc-function [_ & args]
            (send [f args])
-           (let [[ok x] (recv)]
-             (if ok x (error x))))))
+           (match (recv)
+             [true x] x
+             [false x] (error x)))))
   ret)
